@@ -6,8 +6,10 @@ check.other.option <- function(tool.survey, question.name) {
   return (question.name.other %in% tool.survey$name)
 }
 
-load.responses <- function(list_name, tool.choices) {
-  choices <- tool.choices[tool.choices$`list_name` == list_name, ]
+
+load.responses <- function(choice_list_name, tool.choices) {
+  choices <- tool.choices %>%
+    dplyr::filter(list_name == choice_list_name)
   responses_eng <- paste0(choices$`label::English`, collapse = "\n")
   responses_rus <- paste0(choices$`label::Russian`, collapse = "\n")
   responses_ukr <- paste0(choices$`label::Ukrainian`, collapse = "\n")

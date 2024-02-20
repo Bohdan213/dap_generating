@@ -169,8 +169,6 @@ create.dap <- function(survey.file, old_dap.file, new_dap.file) {
   tool.survey <- tool.survey[!tool.survey$type %in% c("start", "end", "today", "deviceid", "audit"),]
   tool.choices <- openxlsx::read.xlsx(paste0("./resources/", survey.file), sheet = "choices")
   tool.survey <- cast.strings(tool.survey)
-  # old.dap <- xlsx::read.xlsx(paste0("./resources/", old_dap.file), sheetName = "DAP__R_", keepFormulas=TRUE)
-  # old.dap <- dap.preparation(old.dap)
   new.dap <- data.frame(check.names = FALSE)
   
   for (i in 1:nrow(tool.survey)) {
@@ -178,10 +176,10 @@ create.dap <- function(survey.file, old_dap.file, new_dap.file) {
     is_group <- grepl("_group", tool.survey$`type`[i])
     new.dap <- dplyr::bind_rows(new.dap, data.frame(
       `Groups` = ifelse(is_group, tool.survey$`type`[i], NA),
-      `change question` = "no",
+      `change question` = "new",
       `old number` = tool.survey$number_indicator[i],
       `new number` = NA,
-      `Question Type` = ifelse(is_group, NA, tool.survey$type[i]),
+      `Question Type` = ifelse(is_group, NA, stringr::str_split(tool.survey$type[i], " ")[[1]][1]),
       `Indicator / Variable (name)` = tool.survey$xml[i],
       `Questionnaire Question` = tool.survey$`label::English`[i],
       `Questionnaire Question RUS` = tool.survey$`label::Russian`[i],
@@ -203,27 +201,36 @@ create.dap <- function(survey.file, old_dap.file, new_dap.file) {
   }
   
   wb <- openxlsx::loadWorkbook(paste0("./resources/", old_dap.file))
-  
+  deleteData(wb, sheet = "DAP__R_", cols = 1:100000, rows = 1:100000)
+               
   existing_sheets <- openxlsx::getSheetNames(paste0("./resources/", old_dap.file))
   for (sheet in existing_sheets) {
     if (sheet != "DAP__R_" & sheet != "type" & sheet != "change") {
       openxlsx::removeWorksheet(wb, sheet)
     }
   }
-  
   openxlsx::writeData(wb, "DAP__R_", new.dap, startRow = 1, startCol = 1)
   
-  # print(nrow(new.dap))
-  # dataValidation(wb, sheet="DAP__R_", rows = 2:(nrow(new.dap) + 1),
-  #                col = 2,
-  #                type = 'list', value = "'change'!$B$2:$B$5")
-  # 
-  # dataValidation(wb, sheet="DAP__R_", rows = 2:(nrow(new.dap) + 1),
-  #                col = 5,
-  #                type = 'list', value = "'change'!$A$2:$A$6")
-  
-  formula <- '=IF(OR(B2="new";B2="yes");IF(ISNUMBER(SEARCH("Other";K2));"add an additional text question below";"");IF(AND(B2="deletion";ISNUMBER(SEARCH("Other";K2)));"deletion an additional text question below";""))'
-  writeFormula(wb, sheet = "DAP__R_", x = formula, startCol = ncol(new.dap), startRow = 2)
+  # add other (specify) notification formula
+  other_formulas <- c()
+  for (rowid in 2:999) {
+    formula <- paste0('=IF(OR(B', rowid, '="new",B', rowid, '="yes"),IF(ISNUMBER(SEARCH("Other",K', rowid, ')),"add an additional text question below",""),IF(AND(B', rowid, '="deletion",ISNUMBER(SEARCH("Other",K', rowid, '))),"deletion an additional text question below",""))')
+    other_formulas <- c(other_formulas, formula)
+  }
+  # add constraint formula
+  constraint_formulas <- c()
+  formula_based <- '=IF(AND(OR(B3="new";B3="yes";B3="no");E3="select_multiple");IF(ISNUMBER(SEARCH("None";K3));"not(selected(., "none") and (count-selected(.)>1))";"");"")'
+  for (rowid in 2:999) {
+    if (is.na(new.dap$`Constraint`[rowid])) {
+      formula <- paste0('=IF(AND(OR(B', rowid, '="new",B', rowid, '="yes",B', rowid, '="no"),E', rowid, '="select_multiple"),IF(ISNUMBER(SEARCH("None",K', rowid, ')),"not(selected(., ', "'none'", ') and (count-selected(.)>1))",""),"")')
+    } else {
+      formula <- paste0('="', new.dap$`Constraint`[rowid], '"')
+    }
+    
+    constraint_formulas <- c(constraint_formulas, formula)
+  }
+  writeFormula(wb, sheet = "DAP__R_", x = other_formulas, startCol = which(colnames(new.dap) == "Other (specify) Question"), startRow = 2)
+  writeFormula(wb, sheet = "DAP__R_", x = constraint_formulas, startCol = which(colnames(new.dap) == "Constraint"), startRow = 2)
   
   openxlsx::saveWorkbook(wb, paste0("resources/", new_dap.file), overwrite = TRUE)
 }
@@ -233,7 +240,7 @@ create.changes.dap <- function(survey.file, old_dap.file) {
 
   tool.survey <- utilityR::load.tool.survey(paste0("./resources/", survey.file), keep_cols = TRUE)
   tool.survey <- tool.survey[!tool.survey$type %in% c("start", "end", "today", "deviceid", "audit"),]
-  tool.choices <- as.data.frame(readxl::read_xlsx(paste0("./resources/", survey.file), sheet = "choices"))
+  tool.choices <<- as.data.frame(readxl::read_xlsx(paste0("./resources/", survey.file), sheet = "choices"))
   tool.survey <- cast.strings(tool.survey)
   tool.choices <- cast.strings(tool.choices)
   old.dap <- as.data.frame(readxl::read_xlsx(paste0("./resources/", old_dap.file), sheet = "DAP__R_"))
@@ -248,7 +255,7 @@ create.changes.dap <- function(survey.file, old_dap.file) {
     row <- data.frame(
       `Groups` = ifelse(is_group, tool.survey$`type`[i], NA),
       `number` = tool.survey$number_indicator[i],
-      `Question Type` = ifelse(is_group, NA, tool.survey$type[i]),
+      `Question Type` = ifelse(is_group, NA, stringr::str_split(tool.survey$type[i], " ")[[1]][1]),
       `Indicator / Variable (name)` = tool.survey$xml[i],
       `Questionnaire Question` = tool.survey$`label::English`[i],
       `Questionnaire Question RUS` = tool.survey$`label::Russian`[i],
@@ -298,10 +305,8 @@ create.changes.dap <- function(survey.file, old_dap.file) {
   changes.dap <- changes.dap %>%
     dplyr::select(-c("Groups"))
   
-  # changes.dap <- dap.preparation(changes.dap)
-  
   wb <- openxlsx::createWorkbook("changes")
-  # create sheet suggestions
+
   openxlsx::addWorksheet(wb, "suggestions")
   
   openxlsx::writeData(wb, "suggestions", changes.dap)
@@ -311,8 +316,7 @@ create.changes.dap <- function(survey.file, old_dap.file) {
     fgFill = "#4F81BD", borderColour = "black", border = "left,right,top,bottom"
   )
   openxlsx::addStyle(wb, sheet = 1, style = headerStyle, rows = 1, cols = 1:ncol(changes.dap))
-  # openxlsx::addStyle(wb, sheet = 1, style = style, rows = 2:nrow(changes.dap), cols = 1:ncol(changes.dap), gridExpand = TRUE)
-  
+
   openxlsx::setColWidths(wb, sheet = "suggestions", cols = 1:ncol(changes.dap), widths = rep(45, ncol(changes.dap)))
   openxlsx::setRowHeights(wb, sheet = "suggestions", rows = 1, heights = 45)
   openxlsx::setRowHeights(wb, sheet = "suggestions", rows = 2:nrow(changes.dap), heights = 30)
@@ -320,8 +324,8 @@ create.changes.dap <- function(survey.file, old_dap.file) {
   openxlsx::saveWorkbook(wb, paste0("resources/", "changes.xlsx"), overwrite = TRUE)
 }
 
-create.survey("dap_3.xlsx", "test_tool.xlsx")
+create.survey("dap_2.xlsx", "test_tool_2.xlsx")
 
 create.dap("test_tool.xlsx", "dap_3.xlsx", "new_dap.xlsx")
 
-create.changes.dap("test_tool.xlsx", "dap_3.xlsx")
+# create.changes.dap("test_tool.xlsx", "dap_3.xlsx")
