@@ -23,9 +23,9 @@ load.responses <- function(choice_list_name, tool.choices) {
     responses_ukr <- NA
   }
   return (list(
-    responses_eng = responses_eng,
-    responses_rus = responses_rus,
-    responses_ukr = responses_ukr
+    responses_eng = ifelse(responses_eng == "", NA, responses_eng),
+    responses_rus = ifelse(responses_rus == "", NA, responses_rus),
+    responses_ukr = ifelse(responses_ukr == "", NA, responses_ukr)
   ))
 }
 

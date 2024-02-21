@@ -7,6 +7,12 @@ source("utils.R")
 
 create.survey <- function(dap.file, survey.file) {
   
+  for (file in c(dap.file, survey.file)) {
+    if (!file.exists(paste0("./resources/", file))) {
+      stop(paste0("File ", file, " does not exist"))
+    }
+  }
+  
   dap <- as.data.frame(readxl::read_xlsx(paste0("./resources/", dap.file), sheet = "DAP__R_"))
   
   dap <- dap[!is.na(dap$`change question`),]
@@ -149,10 +155,10 @@ create.survey <- function(dap.file, survey.file) {
   )
   
   addStyle(wb, sheet = "survey", style = headerStyle, rows = 1, cols = 1:ncol(survey))
-  addStyle(wb, sheet = "survey", style = style, rows = 2:nrow(survey), cols = 1:ncol(survey), gridExpand = T)
+  addStyle(wb, sheet = "survey", style = style, rows = 2:nrow(survey) + 1, cols = 1:ncol(survey), gridExpand = T)
   
   addStyle(wb, sheet = "choices", style = headerStyle, rows = 1, cols = 1:ncol(choices))
-  addStyle(wb, sheet = "choices", style = style, rows = 2:nrow(choices), cols = 1:ncol(choices), gridExpand = T)
+  addStyle(wb, sheet = "choices", style = style, rows = 2:nrow(choices) + 1, cols = 1:ncol(choices), gridExpand = T)
   
   setColWidths(wb, sheet = "survey", cols = 1:ncol(survey), widths = rep(45, ncol(survey)))
   setColWidths(wb, sheet = "choices", cols = 1:ncol(choices), widths = rep(30, ncol(choices)))
@@ -164,6 +170,12 @@ create.survey <- function(dap.file, survey.file) {
 
 
 create.dap <- function(survey.file, old_dap.file, new_dap.file) {
+  
+  for (file in c(survey.file, old_dap.file)) {
+    if (!file.exists(paste0("./resources/", file))) {
+      stop(paste0("File ", file, " does not exist in resources folder"))
+    }
+  }
   
   tool.survey <- utilityR::load.tool.survey(paste0("./resources/", survey.file), keep_cols = TRUE)
   tool.survey <- tool.survey[!tool.survey$type %in% c("start", "end", "today", "deviceid", "audit"),]
@@ -237,17 +249,39 @@ create.dap <- function(survey.file, old_dap.file, new_dap.file) {
 
 
 create.changes.dap <- function(survey.file, old_dap.file) {
-
+  
+  for (file in c(survey.file, old_dap.file)) {
+    if (!file.exists(paste0("./resources/", file))) {
+      stop(paste0("File ", file, " does not exist"))
+    }
+  }
+  
   tool.survey <- utilityR::load.tool.survey(paste0("./resources/", survey.file), keep_cols = TRUE)
   tool.survey <- tool.survey[!tool.survey$type %in% c("start", "end", "today", "deviceid", "audit"),]
-  tool.choices <<- as.data.frame(readxl::read_xlsx(paste0("./resources/", survey.file), sheet = "choices"))
+  tool.choices <- as.data.frame(readxl::read_xlsx(paste0("./resources/", survey.file), sheet = "choices"))
   tool.survey <- cast.strings(tool.survey)
   tool.choices <- cast.strings(tool.choices)
   old.dap <- as.data.frame(readxl::read_xlsx(paste0("./resources/", old_dap.file), sheet = "DAP__R_"))
   # TODO: a checker for columns consistency
   old.dap <- old.dap[!is.na(old.dap$`Indicator / Variable (name)`),]
   old.dap <- dap.preparation(old.dap)
-  changes.dap <- data.frame(check.names = FALSE)
+  changes.dap <- data.frame(
+    `Groups` = as.character(),
+    `number` = as.character(),
+    `Question Type` = as.character(),
+    `Indicator / Variable (name)` = as.character(),
+    `Questionnaire Question` = as.character(),
+    `Questionnaire Question RUS` = as.character(),
+    `Questionnaire Question UKR` = as.character(),
+    `Questionnaire Responses` = as.character(),
+    `Questionnaire Responses RUS` = as.character(),
+    `Questionnaire Responses UKR` = as.character(),
+    `Hint` = as.character(),
+    `Hint RUS` = as.character(),
+    `Hint UKR` = as.character(),
+    `Relevance` = as.character(),
+    `Constraint` = as.character(),
+    check.names = FALSE)
   
   for  (i in 1:nrow(tool.survey)) {
     resposes <- load.responses(utilityR::get.choice.list.from.name(tool.survey$name[i], tool.survey), tool.choices)
@@ -283,9 +317,7 @@ create.changes.dap <- function(survey.file, old_dap.file) {
       if (is.na(old.dap.row[, "Question Type"])) {
         old.dap.row$`Question Type` <- NA
       } else {
-        if (grepl("select_", old.dap.row$`Question Type`)) {
-          old.dap.row$`Question Type` <- paste(old.dap.row$`Question Type`, old.dap.row$`Indicator / Variable (name)`)
-        }
+        old.dap.row$`Question Type` <- old.dap.row$`Question Type`
       }
       if (check.row.identical(row[1, ], old.dap.row[1, ])) {
         changes <- FALSE
@@ -293,15 +325,9 @@ create.changes.dap <- function(survey.file, old_dap.file) {
       }
     }
     if (changes) {
-      print("changes")
-      print(row$`Indicator / Variable (name)`)
       changes.dap <- dplyr::bind_rows(changes.dap, row)
-    } else {
-      print("0 changes")
-      print(row$`Indicator / Variable (name)`)
     }
   }
-  
   changes.dap <- changes.dap %>%
     dplyr::select(-c("Groups"))
   
@@ -319,13 +345,14 @@ create.changes.dap <- function(survey.file, old_dap.file) {
 
   openxlsx::setColWidths(wb, sheet = "suggestions", cols = 1:ncol(changes.dap), widths = rep(45, ncol(changes.dap)))
   openxlsx::setRowHeights(wb, sheet = "suggestions", rows = 1, heights = 45)
-  openxlsx::setRowHeights(wb, sheet = "suggestions", rows = 2:nrow(changes.dap), heights = 30)
+  openxlsx::setRowHeights(wb, sheet = "suggestions", rows = 2:nrow(changes.dap) + 1, heights = 30)
   
   openxlsx::saveWorkbook(wb, paste0("resources/", "changes.xlsx"), overwrite = TRUE)
 }
 
-create.survey("dap_2.xlsx", "test_tool_2.xlsx")
+create.survey("dap_3.xlsx", "test_tool.xlsx")
 
 create.dap("test_tool.xlsx", "dap_3.xlsx", "new_dap.xlsx")
 
-# create.changes.dap("test_tool.xlsx", "dap_3.xlsx")
+create.changes.dap("test_tool.xlsx", "dap_3.xlsx")
+
