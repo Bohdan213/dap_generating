@@ -51,8 +51,6 @@ check.row.identical <- function(row1, row2) {
       next
     }
     if (!(row1[1, colname] == row2[1, colname])) {
-      # print(row1[1, colname])
-      # print(row2[1, colname])
       return(FALSE)
     }
   }
