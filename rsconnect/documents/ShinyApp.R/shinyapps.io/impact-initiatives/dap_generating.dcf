@@ -1,0 +1,13 @@
+name: dap_generating
+title: dap_generating
+username: impact-initiatives
+account: impact-initiatives
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 11652474
+bundleId: 8458431
+url: https://impact-initiatives.shinyapps.io/dap_generating/
+version: 1
+asMultiple: FALSE
+asStatic: FALSE
+ignoredFiles: resources/CCM.xlsx|resources/dap_4.xlsx

@@ -10,18 +10,23 @@ check.other.option <- function(tool.survey, question.name) {
 load.responses <- function(choice_list_name, tool.choices) {
   choices <- tool.choices %>%
     dplyr::filter(list_name == choice_list_name)
+
+  # remove NA from the choices$`label::English`
+  choices <- choices[!is.na(choices$`label::English`), ]
+  # choices <- choices[!is.na(choices$`label::Russian`), ]
+  # choices <- choices[!is.na(choices$`label::Ukrainian`), ]
+
   responses_eng <- paste0(choices$`label::English`, collapse = "\n")
   responses_rus <- paste0(choices$`label::Russian`, collapse = "\n")
   responses_ukr <- paste0(choices$`label::Ukrainian`, collapse = "\n")
-  if (any(is.na(choices$`label::English`))) {
-    responses_eng <- NA
-  }
+
   if (any(is.na(choices$`label::Russian`))) {
     responses_rus <- NA
   }
   if (any(is.na(choices$`label::Ukrainian`))) {
     responses_ukr <- NA
   }
+
   return (list(
     responses_eng = ifelse(responses_eng == "", NA, responses_eng),
     responses_rus = ifelse(responses_rus == "", NA, responses_rus),
@@ -59,11 +64,11 @@ check.row.identical <- function(row1, row2) {
 
 
 cast.strings <- function(data) {
-  
+
   data <- data %>%
     dplyr::mutate(across(where(is.character), ~ gsub("\r\n", "\n", .x))) %>%
     dplyr::mutate(across(where(is.character), ~ gsub("\r", "", .x)))
-  
+
   return(data)
 }
 
@@ -91,6 +96,6 @@ dap.preparation <- function(data) {
   data <- cast.strings(data)
   # create data.frame from data
   data <- as.data.frame(data)
-  
+
   return(data)
 }
