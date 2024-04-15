@@ -296,10 +296,10 @@ create.dap <- function(survey.file, old_dap.file, new.dap) {
 }
 
 
-create.validation.dap <- function(survey.file, old_dap.file, new.dap) {
+create.validation.dap <- function(survey.file, old_dap.file, new.validation.dap) {
 
   tool.survey <- utilityR::load.tool.survey(survey.file, keep_cols = TRUE)
-  tool.survey <- tool.survey[!tool.survey$type %in% c("start", "end", "today", "deviceid", "audit"),]
+  tool.survey <- tool.survey[!tool.survey$type %in% c("start", "end", "today", "deviceid", "audit", "calculate", "note", "begin_group", "end_group", "begin_repeat", "end_repeat"),]
   tool.choices <- openxlsx::read.xlsx(survey.file, sheet = "choices")
   tool.survey <- cast.strings(tool.survey)
   readme.page <- openxlsx::read.xlsx(survey.file, sheet = "READ_ME")
@@ -320,9 +320,10 @@ create.validation.dap <- function(survey.file, old_dap.file, new.dap) {
 
     is_group <- grepl("_group", tool.survey$`type`[i])
     new.dap <- dplyr::bind_rows(new.dap, data.frame(
-      `new number` = tool.survey$number_indicator[i],
+      `Number identificator` = tool.survey$number_indicator[i],
       `Question Type` = ifelse(is_group, NA, stringr::str_split(tool.survey$type[i], " ")[[1]][1]),
       `Indicator / Variable (name)` = tool.survey$xml[i],
+      `Indicator group / sector` = tool.survey$sector[i],
       `Questionnaire Question` = tool.survey$`label::English`[i],
       `Questionnaire Question RUS` = tool.survey$`label::Russian`[i],
       `Questionnaire Question UKR` = tool.survey$`label::Ukrainian`[i],
@@ -334,9 +335,7 @@ create.validation.dap <- function(survey.file, old_dap.file, new.dap) {
       `Hint UKR` = tool.survey$`hint::Ukrainian`[i],
       `Relevance` = tool.survey$`relevant`[i],
       `Constraint` = tool.survey$`constraint`[i],
-      `Required` = tool.survey$`required`[i],
       `Data collection method` = NA,
-      `Indicator group / sector` = tool.survey$sector[i],
       check.names = FALSE
     ))
   }
@@ -348,34 +347,12 @@ create.validation.dap <- function(survey.file, old_dap.file, new.dap) {
 
   existing_sheets <- openxlsx::getSheetNames(paste0("./resources/", old_dap.file))
   for (sheet in existing_sheets) {
-    if (sheet != "DAP__R_" & sheet != "type" & sheet != "change" & sheet != "READ_ME") {
+    if (sheet != "DAP__R_" & sheet != "READ_ME") {
       openxlsx::removeWorksheet(wb, sheet)
     }
   }
   openxlsx::writeData(wb, "DAP__R_", new.dap, startRow = 1, startCol = 1)
   openxlsx::writeData(wb, "READ_ME", readme.page, startRow = 1, startCol = 1)
-
-  other_formulas <- c()
-  for (rowid in 2:999) {
-    formula <- paste0('=IF(OR(B', rowid, '="new",B', rowid, '="yes"),IF(ISNUMBER(SEARCH("Other",K', rowid, ')),"add an additional text question below",""),IF(AND(B', rowid, '="deletion",ISNUMBER(SEARCH("Other",K', rowid, '))),"deletion an additional text question below",""))')
-    other_formulas <- c(other_formulas, formula)
-  }
-  constraint_formulas <- c()
-  last_rowid <- 2
-  for (rowid in 1:999) {
-    if (is.na(new.dap$`Constraint`[rowid])) {
-      formula <- paste0('=IF(AND(OR(B', rowid + 1, '="new",B', rowid + 1, '="yes",B', rowid + 1, '="no"),E', rowid + 1, '="select_multiple"),IF(ISNUMBER(SEARCH("None",K', rowid + 1, ')),"not(selected(., ', "'none'", ') and (count-selected(.)>1))",""),"")')
-      constraint_formulas <- c(constraint_formulas, formula)
-    } else {
-      if (length(constraint_formulas) > 0) {
-        writeFormula(wb, sheet = "DAP__R_", x = constraint_formulas, startCol = which(colnames(new.dap) == "Constraint"), startRow = last_rowid)
-      }
-      constraint_formulas <- c()
-      last_rowid <- rowid + 1
-    }
-  }
-
-  writeFormula(wb, sheet = "DAP__R_", x = other_formulas, startCol = which(colnames(new.dap) == "Other (specify) Question"), startRow = 2)
 
   return(wb)
 }

@@ -73,7 +73,16 @@ server <- function(input, output) {
     if (is.null(file))
       return(NULL)
 
-    dap <- create.dap(tool$datapath, "dap_5.xlsx", "")
+    dap <- create.dap(tool$datapath, "dap_5_empty.xlsx", "")
+
+    return(dap)
+  }
+
+  process_tool_validation_dap <- function(tool) {
+    if (is.null(file))
+      return(NULL)
+
+    dap <- create.validation.dap(tool$datapath, "dap_5_validation.xlsx", "")
 
     return(dap)
   }
@@ -92,11 +101,12 @@ server <- function(input, output) {
   })
 
   processed_tool <- reactive({
+    print(input$validation)
     if (input$validation) {
-      print("hehehehehehehehehehehehhehe")
+      process_tool_validation_dap(input$tool)
+    } else {
       process_tool_dap(input$tool)
     }
-    process_tool_dap(input$tool)
   })
 
   processed_tool_old_dap <- reactive({
