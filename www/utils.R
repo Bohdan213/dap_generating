@@ -13,6 +13,13 @@ load.responses <- function(choice_list_name, tool.choices) {
 
   # remove NA from the choices$`label::English`
   choices <- choices[!is.na(choices$`label::English`), ]
+  if (nrow(choices) > 35) {
+    return (list(
+      responses_eng = NA,
+      responses_rus = NA,
+      responses_ukr = NA
+    ))
+  }
   # choices <- choices[!is.na(choices$`label::Russian`), ]
   # choices <- choices[!is.na(choices$`label::Ukrainian`), ]
 

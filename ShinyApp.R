@@ -1,9 +1,26 @@
 library(shiny)
 library(openxlsx)
 
-source("logic.R")
+source("www/logic.R")
 
 ui <- fluidPage(
+  tags$head(
+    tags$style(HTML(
+      "
+            #table-container {
+              overflow: visible !important;
+            }
+          "
+    )),
+    HTML(
+      '<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>'
+    ),
+    includeCSS("www/style.css"),
+    HTML(
+      '<a style="padding-left:10px;" class="app-title" href= "https://www.reach-initiative.org/" target="_blank"><img src="reach.jpg" height = "50"></a><span class="app-description" style="font-size: 16px; color: #FFFFFF"><strong>Database_test</strong></span>'
+    ),
+  ),
+  hr(),
   tabsetPanel(
     tabPanel("DAP to tool converter",
              sidebarLayout(
@@ -20,6 +37,7 @@ ui <- fluidPage(
              sidebarLayout(
                sidebarPanel(
                  fileInput("tool", "Choose your kobo tool", accept = ".xlsx"),
+                 checkboxInput("validation", "DAP for validation"),
                  width = 3
                ),
                mainPanel(
@@ -74,6 +92,10 @@ server <- function(input, output) {
   })
 
   processed_tool <- reactive({
+    if (input$validation) {
+      print("hehehehehehehehehehehehhehe")
+      process_tool_dap(input$tool)
+    }
     process_tool_dap(input$tool)
   })
 
